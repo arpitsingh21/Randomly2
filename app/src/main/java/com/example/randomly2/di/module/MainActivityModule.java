@@ -2,9 +2,9 @@ package com.example.randomly2.di.module;
 
 import android.content.Context;
 
-import com.journaldev.dagger2retrofitrecyclerview.di.qualifier.ActivityContext;
-import com.journaldev.dagger2retrofitrecyclerview.di.scopes.ActivityScope;
-import com.journaldev.dagger2retrofitrecyclerview.ui.MainActivity;
+import com.example.randomly2.di.qualifires.ActivityContext;
+import com.example.randomly2.di.scope.ActivityScope;
+import com.example.randomly2.ui.MainActivity;
 
 import dagger.Module;
 import dagger.Provides;

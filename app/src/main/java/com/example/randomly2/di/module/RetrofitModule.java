@@ -23,7 +23,7 @@ public class RetrofitModule {
     @ApplicationScope
     Retrofit getRetrofit(OkHttpClient okHttpClient) {
         return new Retrofit.Builder()
-                .baseUrl("https://swapi.co/api/")
+                .baseUrl("http://www.mocky.io/v2/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .client(okHttpClient)
                 .build();
