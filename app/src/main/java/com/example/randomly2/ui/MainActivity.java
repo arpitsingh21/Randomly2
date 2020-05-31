@@ -2,7 +2,6 @@ package com.example.randomly2.ui;
 
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -25,6 +24,7 @@ import com.example.randomly2.retrofit.APIInterface;
 import com.example.randomly2.room.MyRoomDatabase;
 import com.example.randomly2.room.daos.FeedsDao;
 import com.example.randomly2.room.tables.Feed;
+import com.example.randomly2.tasks.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,10 +35,15 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class MainActivity extends AppCompatActivity implements FeedAdapter.ClickListener{
+public class MainActivity extends AppCompatActivity implements FeedAdapter.ClickListener {
 
     private RecyclerView recyclerView;
     MainActivityComponent mainActivityComponent;
+
+    private boolean loading = true;
+    int pastVisiblesItems, visibleItemCount, totalItemCount;
+
+    int currentpage = 0;
 
     @Inject
     public FeedAdapter recyclerViewAdapter;
@@ -60,7 +65,8 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
         setContentView(R.layout.activity_main);
 
         recyclerView = findViewById(R.id.recyclerView);
-        recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
+
+        initPagination();
 
         ApplicationComponent applicationComponent = MyApplication.get(this).getApplicationComponent();
         mainActivityComponent = DaggerMainActivityComponent.builder()
@@ -71,9 +77,33 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
         mainActivityComponent.injectMainActivity(this);
         recyclerView.setAdapter(recyclerViewAdapter);
 
-        loadData(0);
+
+        checkInternetAndLoadData();
+
+
+
+
     }
 
+    private void checkInternetAndLoadData() {
+
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                if (Utils.getInternetStatus()==1){
+                    loadData(currentpage);
+                }else {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(mContext, "No internet, getting data from cache ", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    loadDataFromCache(currentpage);
+                }
+            }
+        });
+    }
 
 
     public void loadData(int page) {
@@ -81,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
         loadDataFromCache(page);
     }
 
-    public void loadDataFromServer(int page){
+    public void loadDataFromServer(int page) {
         switch (page) {
 
             case 0:
@@ -91,7 +121,7 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
                     public void onResponse(Call<PostResponsePojo> call, Response<PostResponsePojo> response) {
                         if (response.body() != null) {
                             Log.d("APi response", response.body().toString());
-                            cacheFeedinDatabase(response.body().getPosts(),0);
+                            cacheFeedinDatabase(response.body().getPosts(), 0);
                         }
                     }
 
@@ -109,7 +139,7 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
                     public void onResponse(Call<PostResponsePojo> call, Response<PostResponsePojo> response) {
                         if (response.body() != null) {
                             Log.d("APi response", response.body().toString());
-                            cacheFeedinDatabase(response.body().getPosts(),1);
+                            cacheFeedinDatabase(response.body().getPosts(), 1);
                         }
                     }
 
@@ -126,7 +156,7 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
                     public void onResponse(Call<PostResponsePojo> call, Response<PostResponsePojo> response) {
                         if (response.body() != null) {
                             Log.d("APi response", response.body().toString());
-                            cacheFeedinDatabase(response.body().getPosts(),2);
+                            cacheFeedinDatabase(response.body().getPosts(), 2);
                         }
                     }
 
@@ -147,8 +177,8 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
                 MyRoomDatabase db = MyRoomDatabase.getsInstance(getApplicationContext());
                 FeedsDao dao = db.getFeedDao();
 
-               final List<Feed> list = dao.getFeedByPage(page);
-                if (list.size()>0) {
+                final List<Feed> list = dao.getFeedByPage(page);
+                if (list.size() > 0) {
 
                     Log.d("List size", list.size() + "");
                     runOnUiThread(new Runnable() {
@@ -167,7 +197,7 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
 
     }
 
-    public void cacheFeedinDatabase(final List<PostResponse> list,final int page) {
+    public void cacheFeedinDatabase(final List<PostResponse> list, final int page) {
 
 
         AsyncTask.execute(new Runnable() {
@@ -176,7 +206,7 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
                 MyRoomDatabase db = MyRoomDatabase.getsInstance(getApplicationContext());
                 FeedsDao dao = db.getFeedDao();
 
-                long[] ids = dao.bulkInsert(converListToInternal(list,page));
+                long[] ids = dao.bulkInsert(converListToInternal(list, page));
 
                 if (ids.length != list.size()) {
                     Log.d("Inserted ", false + "");
@@ -190,13 +220,42 @@ public class MainActivity extends AppCompatActivity implements FeedAdapter.Click
 
     }
 
-    public List<Feed> converListToInternal(List<PostResponse> list,int page){
+    public List<Feed> converListToInternal(List<PostResponse> list, int page) {
         List<Feed> feeds = new ArrayList<>(list.size());
-        for (PostResponse postResponse : list){
-            feeds.add(new Feed(page,postResponse.getId(),postResponse.getThumbnailImage(),postResponse.getEventName(),postResponse.getEventDate(),postResponse.getViews(),postResponse.getLikes(),postResponse.getShares()));
+        for (PostResponse postResponse : list) {
+            feeds.add(new Feed(page, postResponse.getId(), postResponse.getThumbnailImage(), postResponse.getEventName(), postResponse.getEventDate(), postResponse.getViews(), postResponse.getLikes(), postResponse.getShares()));
         }
         return feeds;
     }
+
+    public void initPagination() {
+
+        final LinearLayoutManager mLayoutManager;
+        mLayoutManager = new LinearLayoutManager(this);
+        recyclerView.setLayoutManager(mLayoutManager);
+
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                if (dy > 0) { //check for scroll down
+                    visibleItemCount = mLayoutManager.getChildCount();
+                    totalItemCount = mLayoutManager.getItemCount();
+                    pastVisiblesItems = mLayoutManager.findFirstVisibleItemPosition();
+
+                    if (loading) {
+                        if ((visibleItemCount + pastVisiblesItems) >= totalItemCount) {
+                            loading = false;
+
+                            loadData(currentpage+1);
+                            Log.d("Current page", currentpage+"");
+
+                        }
+                    }
+                }
+            }
+        });
+    }
+
 
     @Override
     public void onClickFeed(String filmName) {

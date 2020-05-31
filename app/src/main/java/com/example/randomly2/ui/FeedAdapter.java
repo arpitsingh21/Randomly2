@@ -8,10 +8,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 
+import com.bumptech.glide.Glide;
 import com.example.randomly2.R;
-import com.example.randomly2.data.PostResponse;
 import com.example.randomly2.room.tables.Feed;
-import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +20,7 @@ import javax.inject.Inject;
 public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.ViewHolder> {
     private List<Feed> data;
     private FeedAdapter.ClickListener clickListener;
+
 
     @Inject
     public FeedAdapter(ClickListener clickListener) {
@@ -36,15 +36,12 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
         holder.title.setText(data.get(position).getEvent_name());
-        holder.likes.setText(String.valueOf(data.get(position).getLikes()));
-        holder.shares.setText(String.valueOf(data.get(position).getShares()));
-        holder.views.setText(String.valueOf(data.get(position).getViews()));
+        holder.likes.setText(String.valueOf(data.get(position).getLikes())+" Likes");
+        holder.shares.setText(String.valueOf(data.get(position).getShares())+" Shares");
+        holder.views.setText(String.valueOf(data.get(position).getViews())+" Views");
 
-        Picasso.with(holder.image.getContext())
-                .load(data.get(position).getThumbnail_image())
-                .resize(200,200)
-                .onlyScaleDown()
-                .into(holder.image);
+        Glide.with(holder.image.getContext()).load(data.get(position).getThumbnail_image()).into(holder.image);
+
     }
 
     @Override
